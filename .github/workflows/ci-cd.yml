@@ -22,10 +22,14 @@ jobs:
       with:
         python-version: '3.9'
     
-    - name: Install package
+    - name: Install package with dependencies
       run: |
-        pip install .
-        pip install pytest
+        # Install in development mode to include all dependencies
+        pip install -e .
+        
+        # Verify installation
+        pip list | grep Flask
+        pip list | grep mysqlclient
 
   test-services:
     needs: setup-environment
@@ -33,15 +37,15 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Run health checks
+    - name: Verify imports
       run: |
-        echo "Running import tests..."
-        python -c "from microservices.services import bookings; print('Bookings module imported')"
-        python -c "from microservices.services import movies; print('Movies module imported')"
-        python -c "from microservices.services import showtimes; print('Showtimes module imported')"
-        python -c "from microservices.services import user; print('User module imported')"
-        python -c "from microservices.database import db_connection; print('DB module imported')"
-        echo "All imports successful!"
+        echo "Testing critical imports..."
+        python -c "
+        from microservices.services import bookings, movies, showtimes, user;
+        from microservices.database import db_connection;
+        print('✓ All modules import successfully')
+        "
+        echo "Import verification passed!"
 
   build-and-push:
     needs: test-services
