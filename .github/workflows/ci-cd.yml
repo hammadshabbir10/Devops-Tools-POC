@@ -71,44 +71,44 @@ jobs:
         docker push ${{ env.DOCKER_REGISTRY }}/22i1140/${{ matrix.service }}:${{ env.APP_VERSION }}
         docker push ${{ env.DOCKER_REGISTRY }}/22i1140/${{ matrix.service }}:latest
 
-deploy:
-  needs: build-and-push
-  runs-on: ubuntu-latest
-  steps:
-  - uses: actions/checkout@v4
-  - uses: azure/setup-kubectl@v3
-  
-  - name: Configure Kubernetes
-    run: |
-      echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig.yaml
-      chmod 600 kubeconfig.yaml
-      export KUBECONFIG=kubeconfig.yaml
-      
-      # Verify cluster access
-      kubectl cluster-info
-      kubectl get nodes
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: azure/setup-kubectl@v3
+    
+    - name: Configure Kubernetes
+      run: |
+        echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig.yaml
+        chmod 600 kubeconfig.yaml
+        export KUBECONFIG=kubeconfig.yaml
+        
+        # Verify cluster access
+        kubectl cluster-info
+        kubectl get nodes
 
-  - name: Deploy Resources
-    run: |
-      kubectl create namespace ${{ env.K8S_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
-      
-      # Apply resources
-      kubectl apply -f k8s_specification/configmaps/ -n ${{ env.K8S_NAMESPACE }}
-      kubectl apply -f k8s_specification/secrets/ -n ${{ env.K8S_NAMESPACE }}
-      kubectl apply -f k8s_specification/persistentvolume/ -n ${{ env.K8S_NAMESPACE }}
-      
-      # Update deployments
-      for service in booking-service movie-service showtime-service user-service; do
-        kubectl set image deployment/$service \
-          $service=${{ env.DOCKER_REGISTRY }}/22i1140/$service:${{ env.APP_VERSION }} \
-          -n ${{ env.K8S_NAMESPACE }}
-      done
-      
-      kubectl apply -f k8s_specification/services/ -n ${{ env.K8S_NAMESPACE }}
-      kubectl apply -f k8s_specification/ingress/ -n ${{ env.K8S_NAMESPACE }}
-      
-      # Verify deployments
-      kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/movie-service --timeout=300s
-      kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/booking-service --timeout=300s
-      kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/showtime-service --timeout=300s
-      kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/user-service --timeout=300s
+    - name: Deploy Resources
+      run: |
+        kubectl create namespace ${{ env.K8S_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+        
+        # Apply resources
+        kubectl apply -f k8s_specification/configmaps/ -n ${{ env.K8S_NAMESPACE }}
+        kubectl apply -f k8s_specification/secrets/ -n ${{ env.K8S_NAMESPACE }}
+        kubectl apply -f k8s_specification/persistentvolume/ -n ${{ env.K8S_NAMESPACE }}
+        
+        # Update deployments
+        for service in booking-service movie-service showtime-service user-service; do
+          kubectl set image deployment/$service \
+            $service=${{ env.DOCKER_REGISTRY }}/22i1140/$service:${{ env.APP_VERSION }} \
+            -n ${{ env.K8S_NAMESPACE }}
+        done
+        
+        kubectl apply -f k8s_specification/services/ -n ${{ env.K8S_NAMESPACE }}
+        kubectl apply -f k8s_specification/ingress/ -n ${{ env.K8S_NAMESPACE }}
+        
+        # Verify deployments
+        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/movie-service --timeout=300s
+        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/booking-service --timeout=300s
+        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/showtime-service --timeout=300s
+        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/user-service --timeout=300s
