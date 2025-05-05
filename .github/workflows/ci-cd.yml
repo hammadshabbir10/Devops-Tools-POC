@@ -76,70 +76,53 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: azure/setup-kubectl@v3
     
-    - name: Configure Kubernetes
+    - name: Set up Minikube
       run: |
-        # Decode and save kubeconfig
-        echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig.yaml
-        chmod 600 kubeconfig.yaml
+        # Install Minikube
+        curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+        sudo install minikube-linux-amd64 /usr/local/bin/minikube
         
-        # Verify config format
-        if ! kubectl config view --kubeconfig=kubeconfig.yaml >/dev/null; then
-          echo "::error::Invalid kubeconfig format"
-          cat kubeconfig.yaml
-          exit 1
-        fi
+        # Install kubectl
+        sudo apt-get update
+        sudo apt-get install -y kubectl
         
-        export KUBECONFIG=kubeconfig.yaml
+        # Start cluster
+        minikube start --driver=docker
+        minikube update-context
         
-        # Verify cluster connection
-        if ! kubectl cluster-info >/dev/null 2>&1; then
-          echo "::error::Failed to connect to cluster"
-          echo "Current context:"
-          kubectl config current-context
-          echo "Trying to use first available context..."
-          kubectl config use-context $(kubectl config get-contexts -o name | head -1)
-          
-          if ! kubectl cluster-info; then
-            exit 1
-          fi
-        fi
+        # Verify
+        kubectl cluster-info
+        kubectl get nodes
 
     - name: Deploy Resources
       run: |
         # Create namespace
         kubectl create namespace ${{ env.K8S_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
         
-        # Apply configurations with retries
-        for attempt in {1..3}; do
-          echo "Attempt $attempt to apply configurations"
-          kubectl apply --validate=false -f k8s_specification/configmaps/ -n ${{ env.K8S_NAMESPACE }} && break
-          sleep 5
-        done
-        
-        # Apply other resources similarly
-        kubectl apply --validate=false -f k8s_specification/secrets/ -n ${{ env.K8S_NAMESPACE }}
-        kubectl apply --validate=false -f k8s_specification/persistentvolume/ -n ${{ env.K8S_NAMESPACE }}
+        # Apply configurations
+        kubectl apply -f k8s_specification/configmaps/ -n ${{ env.K8S_NAMESPACE }}
+        kubectl apply -f k8s_specification/secrets/ -n ${{ env.K8S_NAMESPACE }}
+        kubectl apply -f k8s_specification/persistentvolume/ -n ${{ env.K8S_NAMESPACE }}
         
         # Update deployments
         for service in booking-service movie-service showtime-service user-service; do
           kubectl set image deployment/$service \
             $service=${{ env.DOCKER_REGISTRY }}/22i1140/$service:${{ env.APP_VERSION }} \
-            -n ${{ env.K8S_NAMESPACE }} || echo "Continuing despite update failure"
+            -n ${{ env.K8S_NAMESPACE }}
         done
         
-        # Apply remaining resources
-        kubectl apply --validate=false -f k8s_specification/services/ -n ${{ env.K8S_NAMESPACE }}
-        kubectl apply --validate=false -f k8s_specification/ingress/ -n ${{ env.K8S_NAMESPACE }}
+        # Apply services and ingress
+        kubectl apply -f k8s_specification/services/ -n ${{ env.K8S_NAMESPACE }}
+        kubectl apply -f k8s_specification/ingress/ -n ${{ env.K8S_NAMESPACE }}
         
-        # Verify deployments with timeout
-        for service in booking-service movie-service showtime-service user-service; do
-          if kubectl get deployment/$service -n ${{ env.K8S_NAMESPACE }} >/dev/null 2>&1; then
-            kubectl rollout status deployment/$service \
-              -n ${{ env.K8S_NAMESPACE }} \
-              --timeout=300s || echo "Rollout verification failed but continuing"
-          fi
-        done
+        # Verify deployments
+        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/movie-service --timeout=300s
+        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/booking-service --timeout=300s
+        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/showtime-service --timeout=300s
+        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/user-service --timeout=300s
         
-        echo "✓ Deployment completed"
+        # Get cluster info
+        echo "Cluster details:"
+        kubectl get all -n ${{ env.K8S_NAMESPACE }}
+        minikube service list -n ${{ env.K8S_NAMESPACE }}
