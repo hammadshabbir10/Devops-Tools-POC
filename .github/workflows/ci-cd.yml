@@ -24,12 +24,17 @@ jobs:
     
     - name: Install package with dependencies
       run: |
-        # Install in development mode to include all dependencies
+        # Create and activate virtual environment
+        python -m venv venv
+        source venv/bin/activate
+        
+        # Install package with all dependencies
+        pip install --upgrade pip
         pip install -e .
         
-        # Verify installation
-        pip list | grep Flask
-        pip list | grep mysqlclient
+        # Verify critical packages
+        pip show Flask mysqlclient requests python-dotenv || exit 1
+        echo "✓ All dependencies installed successfully"
 
   test-services:
     needs: setup-environment
@@ -37,15 +42,25 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
+    - name: Set up Python environment
+      run: |
+        source venv/bin/activate
+        pip install -e .
+    
     - name: Verify imports
       run: |
+        source venv/bin/activate
         echo "Testing critical imports..."
         python -c "
-        from microservices.services import bookings, movies, showtimes, user;
-        from microservices.database import db_connection;
-        print('✓ All modules import successfully')
+        try:
+            import flask
+            from microservices.services import bookings, movies, showtimes, user
+            from microservices.database import db_connection
+            print('✓ All modules import successfully')
+        except ImportError as e:
+            print(f'✗ Import failed: {str(e)}')
+            exit(1)
         "
-        echo "Import verification passed!"
 
   build-and-push:
     needs: test-services
