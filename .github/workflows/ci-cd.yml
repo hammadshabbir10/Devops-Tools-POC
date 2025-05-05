@@ -109,7 +109,7 @@ jobs:
         for service in booking-service movie-service showtime-service user-service; do
           kubectl set image deployment/$service \
             $service=${{ env.DOCKER_REGISTRY }}/22i1140/$service:${{ env.APP_VERSION }} \
-            -n ${{ env.K8S_NAMESPACE }}
+            -n movie-booking
         done
         
         # Apply services and ingress
