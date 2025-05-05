@@ -1,3 +1,4 @@
+
 # Cinema 3 - (Extremely Simplified) Example of Microservices in Python
 
 
@@ -65,6 +66,7 @@ To lookup all movies in the database, hit: `http://127.0.0.1:5001/movies`
             "rating": 8.8, 
             "title": "Creed"
     }, 
+    }
     ...... output truncated ...... 
 
 To lookup a movie by its `id`:
@@ -96,6 +98,7 @@ To lookup all showtimes, hit: `http://127.0.0.1:5002/showtimes`
         "a8034f44-aee4-44cf-b32c-74cf452aaaae", 
         "39ab85e5-5e8e-4dc5-afea-65dc368bd7ab"
     ], 
+    }
     ...... output truncated ...... 
 
 To get movies playing on a certain date:
@@ -118,13 +121,13 @@ To get all bookings by all users in the system, hit: `http://127.0.0.1:5003/book
 
     GET /bookings
     Returns a list of booking information for all bookings in the database.
-    
     {
         "chris_rivers": {
             "20151201": [
                 "267eedb8-0f5d-42d5-8f43-72426b9fb3e6"
             ]
-        }, 
+        },
+    } 
         ...... output truncated ...... 
         
 To lookup booking information for a user:
@@ -158,6 +161,7 @@ To get a list of all the users in the system, hit: `http://127.0.0.1:5000/users`
             "last_active": 1360031010, 
             "name": "Chris Rivers"
         }, 
+    }
         ...... output truncated ...... 
 
 To lookup information about a user:
@@ -172,3 +176,7 @@ To lookup information about a user:
 To get suggested movies for a user:
 
     GET /users/michael_scott/suggested
+=======
+# Devops-Integration-POC
+A project demonstrating end-to-end DevOps practices—containerization (Docker), orchestration (Kubernetes), IaC (Terraform), configuration management (Ansible), CI/CD (GitHub Actions), and GitOps (ArgoCD)—applied to a [movie-booking/e-commerce/etc.] application. Focuses on automation, scalability, and deployment best practices.
+
