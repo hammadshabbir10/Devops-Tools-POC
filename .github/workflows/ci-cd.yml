@@ -12,7 +12,7 @@ env:
   APP_VERSION: ${{ github.sha }}
 
 jobs:
-  setup-environment:
+  setup-and-test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -22,35 +22,19 @@ jobs:
       with:
         python-version: '3.9'
     
-    - name: Install package with dependencies
+    - name: Install dependencies
       run: |
-        # Create and activate virtual environment
-        python -m venv venv
-        source venv/bin/activate
-        
-        # Install package with all dependencies
-        pip install --upgrade pip
+        python -m pip install --upgrade pip
         pip install -e .
+        pip install pytest  # Only if you need pytest
         
-        # Verify critical packages
+    - name: Verify installation
+      run: |
         pip show Flask mysqlclient requests python-dotenv || exit 1
-        echo "✓ All dependencies installed successfully"
+        echo "✓ All dependencies installed"
 
-  test-services:
-    needs: setup-environment
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python environment
+    - name: Test imports
       run: |
-        source venv/bin/activate
-        pip install -e .
-    
-    - name: Verify imports
-      run: |
-        source venv/bin/activate
-        echo "Testing critical imports..."
         python -c "
         try:
             import flask
@@ -63,7 +47,7 @@ jobs:
         "
 
   build-and-push:
-    needs: test-services
+    needs: setup-and-test
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -101,12 +85,10 @@ jobs:
         
         kubectl create namespace ${{ env.K8S_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
         
-        # Apply Kubernetes manifests
         kubectl apply -f k8s_specification/configmaps/ -n ${{ env.K8S_NAMESPACE }}
         kubectl apply -f k8s_specification/secrets/ -n ${{ env.K8S_NAMESPACE }}
         kubectl apply -f k8s_specification/persistentvolume/ -n ${{ env.K8S_NAMESPACE }}
         
-        # Update deployments
         for service in booking-service movie-service showtime-service user-service; do
           kubectl set image deployment/$service $service=${{ env.DOCKER_REGISTRY }}/22i1140/$service:${{ env.APP_VERSION }} -n ${{ env.K8S_NAMESPACE }}
         done
@@ -114,7 +96,6 @@ jobs:
         kubectl apply -f k8s_specification/services/ -n ${{ env.K8S_NAMESPACE }}
         kubectl apply -f k8s_specification/ingress/ -n ${{ env.K8S_NAMESPACE }}
         
-        # Verify deployments
         kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/movie-service --timeout=300s
         kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/booking-service --timeout=300s
         kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/showtime-service --timeout=300s
