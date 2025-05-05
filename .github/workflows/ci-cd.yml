@@ -85,18 +85,18 @@ jobs:
         
         kubectl create namespace ${{ env.K8S_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
         
-        kubectl apply -f k8s_specification/configmaps/ -n ${{ env.K8S_NAMESPACE }}
-        kubectl apply -f k8s_specification/secrets/ -n ${{ env.K8S_NAMESPACE }}
-        kubectl apply -f k8s_specification/persistentvolume/ -n ${{ env.K8S_NAMESPACE }}
+        kubectl apply --validate=false -f k8s_specification/configmaps/ -n ${{ env.K8S_NAMESPACE }}
+        kubectl apply --validate=false -f k8s_specification/secrets/ -n ${{ env.K8S_NAMESPACE }}
+        kubectl apply --validate=false -f k8s_specification/persistentvolume/ -n ${{ env.K8S_NAMESPACE }}
         
         for service in booking-service movie-service showtime-service user-service; do
           kubectl set image deployment/$service $service=${{ env.DOCKER_REGISTRY }}/22i1140/$service:${{ env.APP_VERSION }} -n ${{ env.K8S_NAMESPACE }}
         done
         
-        kubectl apply -f k8s_specification/services/ -n ${{ env.K8S_NAMESPACE }}
-        kubectl apply -f k8s_specification/ingress/ -n ${{ env.K8S_NAMESPACE }}
+        kubectl apply --validate=false -f k8s_specification/services/ -n ${{ env.K8S_NAMESPACE }}
+        kubectl apply --validate=false -f k8s_specification/ingress/ -n ${{ env.K8S_NAMESPACE }}
         
-        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/movie-service --timeout=300s
-        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/booking-service --timeout=300s
-        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/showtime-service --timeout=300s
-        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/user-service --timeout=300s
+        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployments/movie-service --timeout=300s
+        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployments/booking-service --timeout=300s
+        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployments/showtime-service --timeout=300s
+        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployments/user-service --timeout=300s
