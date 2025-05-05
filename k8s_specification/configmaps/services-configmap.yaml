@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: services-config
+data:
+  MOVIE_SERVICE_URL: "http://movie-service:5001"
+  SHOWTIME_SERVICE_URL: "http://showtime-service:5002"
+  BOOKING_SERVICE_URL: "http://booking-service:5003"
+  USER_SERVICE_URL: "http://user-service:5000"

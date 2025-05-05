@@ -1,0 +1,41 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: microservices-ingress
+  namespace: movie-booking
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: moviebooking.local  # Add your domain or keep empty for all hosts
+    http:
+      paths:
+      - path: /users
+        pathType: Prefix
+        backend:
+          service:
+            name: user-service
+            port: 
+              number: 5000
+      - path: /movies
+        pathType: Prefix
+        backend:
+          service:
+            name: movie-service
+            port:
+              number: 5001
+      - path: /showtimes
+        pathType: Prefix
+        backend:
+          service:
+            name: showtime-service
+            port:
+              number: 5002
+      - path: /bookings
+        pathType: Prefix
+        backend:
+          service:
+            name: booking-service
+            port:
+              number: 5003

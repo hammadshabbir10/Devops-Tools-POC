@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-config
+data:
+  MYSQL_DATABASE: "movie_booking"
+  DB_HOST: "mysql"
+  DB_NAME: "movie_booking"
+  DB_PORT: "3306"

@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: showtime-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: showtime-service
+  template:
+    metadata:
+      labels:
+        app: showtime-service
+    spec:
+      initContainers:
+      - name: wait-for-mysql
+        image: busybox
+        command: ['sh', '-c', 'until nc -z mysql 3306; do sleep 2; echo "Waiting for MySQL..."; done']
+      containers:
+      - name: showtime-service
+        image: 22i1140/microservices-showtime-service:v1
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: db-secrets
+        - configMapRef:
+            name: services-config
+        ports:
+        - containerPort: 5002
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5002
+          initialDelaySeconds: 30
+          periodSeconds: 10

@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: movie_booking_db
+    environment:
+      MYSQL_ROOT_PASSWORD: mostwanted3z
+      MYSQL_DATABASE: movie_booking
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+
+  user-service:
+    build:
+      context: .
+      target: user-service
+    ports:
+      - "5000:5000"
+    environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: mostwanted3z
+      DB_NAME: movie_booking
+      DB_PORT: 3306
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  movie-service:
+    build:
+      context: .
+      target: movie-service
+    ports:
+      - "5001:5001"
+    environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: mostwanted3z
+      DB_NAME: movie_booking
+      DB_PORT: 3306
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  showtime-service:
+    build:
+      context: .
+      target: showtime-service
+    ports:
+      - "5002:5002"
+    environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: mostwanted3z
+      DB_NAME: movie_booking
+      DB_PORT: 3306
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  booking-service:
+    build:
+      context: .
+      target: booking-service
+    ports:
+      - "5003:5003"
+    environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: mostwanted3z
+      DB_NAME: movie_booking
+      DB_PORT: 3306
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
