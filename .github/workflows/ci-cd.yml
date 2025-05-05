@@ -98,12 +98,12 @@ jobs:
     - name: Deploy Resources
       run: |
         # Create namespace
-        kubectl create namespace ${{ env.K8S_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+        kubectl create namespace movie-booking --dry-run=client -o yaml | kubectl apply -f -
         
         # Apply configurations
-        kubectl apply -f k8s_specification/configmaps/ -n ${{ env.K8S_NAMESPACE }}
-        kubectl apply -f k8s_specification/secrets/ -n ${{ env.K8S_NAMESPACE }}
-        kubectl apply -f k8s_specification/persistentvolume/ -n ${{ env.K8S_NAMESPACE }}
+        kubectl apply -f k8s_specification/configmaps/ -n movie-booking
+        kubectl apply -f k8s_specification/secrets/ -n movie-booking
+        kubectl apply -f k8s_specification/persistentvolume/ -n movie-booking
         
         # Update deployments
         for service in booking-service movie-service showtime-service user-service; do
@@ -113,16 +113,16 @@ jobs:
         done
         
         # Apply services and ingress
-        kubectl apply -f k8s_specification/services/ -n ${{ env.K8S_NAMESPACE }}
-        kubectl apply -f k8s_specification/ingress/ -n ${{ env.K8S_NAMESPACE }}
+        kubectl apply -f k8s_specification/services/ -n movie-booking
+        kubectl apply -f k8s_specification/ingress/ -n movie-booking
         
         # Verify deployments
-        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/movie-service --timeout=300s
-        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/booking-service --timeout=300s
-        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/showtime-service --timeout=300s
-        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/user-service --timeout=300s
+        kubectl rollout status -n movie-booking deployment/movie-service --timeout=300s
+        kubectl rollout status -n movie-booking deployment/booking-service --timeout=300s
+        kubectl rollout status -n movie-booking deployment/showtime-service --timeout=300s
+        kubectl rollout status -n movie-booking deployment/user-service --timeout=300s
         
         # Get cluster info
         echo "Cluster details:"
-        kubectl get all -n ${{ env.K8S_NAMESPACE }}
-        minikube service list -n ${{ env.K8S_NAMESPACE }}
+        kubectl get all -n movie-booking
+        minikube service list -n movie-booking
