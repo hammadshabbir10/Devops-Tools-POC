@@ -97,32 +97,35 @@ jobs:
 
     - name: Deploy Resources
       run: |
-        # Create namespace
-        kubectl create namespace movie-booking --dry-run=client -o yaml | kubectl apply -f -
-        
-        # Apply configurations
-        kubectl apply -f k8s_specification/configmaps/ -n movie-booking
-        kubectl apply -f k8s_specification/secrets/ -n movie-booking
-        kubectl apply -f k8s_specification/persistentvolume/ -n movie-booking
-        
-        # Update deployments
-        for service in booking-service movie-service showtime-service user-service; do
-          kubectl set image deployment/$service \
-            $service=${{ env.DOCKER_REGISTRY }}/22i1140/$service:${{ env.APP_VERSION }} \
-            -n movie-booking
-        done
-        
-        # Apply services and ingress
-        kubectl apply -f k8s_specification/services/ -n movie-booking
-        kubectl apply -f k8s_specification/ingress/ -n movie-booking
-        
-        # Verify deployments
-        kubectl rollout status -n movie-booking deployment/movie-service --timeout=300s
-        kubectl rollout status -n movie-booking deployment/booking-service --timeout=300s
-        kubectl rollout status -n movie-booking deployment/showtime-service --timeout=300s
-        kubectl rollout status -n movie-booking deployment/user-service --timeout=300s
-        
-        # Get cluster info
-        echo "Cluster details:"
-        kubectl get all -n movie-booking
-        minikube service list -n movie-booking
+          # Create namespace
+          kubectl create namespace movie-booking --dry-run=client -o yaml | kubectl apply -f -
+          
+          # Apply configurations
+          kubectl apply -f k8s_specification/configmaps/ -n movie-booking
+          kubectl apply -f k8s_specification/secrets/ -n movie-booking
+          kubectl apply -f k8s_specification/persistentvolume/ -n movie-booking
+          
+          # Apply all deployments first
+          kubectl apply -f k8s_specification/deployments/ -n movie-booking
+          
+          # Then update images
+          for service in booking-service movie-service showtime-service user-service; do
+            kubectl set image deployment/$service \
+              $service=${{ env.DOCKER_REGISTRY }}/22i1140/$service:${{ env.APP_VERSION }} \
+              -n movie-booking
+          done
+          
+          # Apply services and ingress
+          kubectl apply -f k8s_specification/services/ -n movie-booking
+          kubectl apply -f k8s_specification/ingress/ -n movie-booking
+          
+          # Verify deployments
+          kubectl rollout status -n movie-booking deployment/movie-service --timeout=300s
+          kubectl rollout status -n movie-booking deployment/booking-service --timeout=300s
+          kubectl rollout status -n movie-booking deployment/showtime-service --timeout=300s
+          kubectl rollout status -n movie-booking deployment/user-service --timeout=300s
+          
+          # Get cluster info
+          echo "Cluster details:"
+          kubectl get all -n movie-booking
+          minikube service list -n movie-booking
