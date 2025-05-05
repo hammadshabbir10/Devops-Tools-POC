@@ -2,9 +2,9 @@ name: Microservices CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 env:
   DOCKER_REGISTRY: docker.io
@@ -12,11 +12,8 @@ env:
   APP_VERSION: ${{ github.sha }}
 
 jobs:
-  test-services:
+  setup-environment:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        service: [bookings, movies, showtimes, user]
     steps:
     - uses: actions/checkout@v4
     
@@ -25,17 +22,21 @@ jobs:
       with:
         python-version: '3.9'
     
-    - name: Install dependencies
+    - name: Install Python package
       run: |
-        cd microservices/services
-        pip install -e .
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install .
         pip install pytest
-        
-    - name: Run tests
-      run: |
-        cd microservices/services
-        python -m pytest tests/test_${{ matrix.service }}.py -v
+
+  test-services:
+    needs: setup-environment
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [bookings, movies, showtimes, user]
+    steps:
+    - uses: actions/checkout@v4
+    - run: |
+        python -m pytest microservices/services/tests/test_${{ matrix.service }}.py -v
 
   build-and-push:
     needs: test-services
@@ -57,49 +58,40 @@ jobs:
         docker build \
           -t ${{ env.DOCKER_REGISTRY }}/22i1140/${{ matrix.service }}:${{ env.APP_VERSION }} \
           -t ${{ env.DOCKER_REGISTRY }}/22i1140/${{ matrix.service }}:latest \
-          -f Dockerfile \
-          --build-arg SERVICE_NAME=${{ matrix.service }} .
+          --build-arg SERVICE_MODULE=${{ matrix.service }} \
+          .
         docker push ${{ env.DOCKER_REGISTRY }}/22i1140/${{ matrix.service }}:${{ env.APP_VERSION }}
         docker push ${{ env.DOCKER_REGISTRY }}/22i1140/${{ matrix.service }}:latest
 
-  deploy-mysql:
+  deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - uses: azure/setup-kubectl@v3
     
-    - name: Deploy MySQL
+    - name: Deploy to Kubernetes
       run: |
         echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig.yaml
         export KUBECONFIG=kubeconfig.yaml
         
         kubectl create namespace ${{ env.K8S_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
-        kubectl apply -f k8s_specification/persistentvolume/ -n ${{ env.K8S_NAMESPACE }}
-        kubectl apply -f k8s_specification/secrets/db-secrets.yaml -n ${{ env.K8S_NAMESPACE }}
-        kubectl apply -f k8s_specification/deployments/mysql-deployment.yaml -n ${{ env.K8S_NAMESPACE }}
-        kubectl apply -f k8s_specification/services/mysql-service.yaml -n ${{ env.K8S_NAMESPACE }}
-        kubectl rollout status deployment/mysql -n ${{ env.K8S_NAMESPACE }} --timeout=300s
-
-  deploy-microservices:
-    needs: deploy-mysql
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - uses: azure/setup-kubectl@v3
-    
-    - name: Deploy Applications
-      run: |
-        export KUBECONFIG=kubeconfig.yaml
-        kubectl apply -f k8s_specification/configmaps/ -n ${{ env.K8S_NAMESPACE }}
         
+        # Apply Kubernetes manifests in correct order
+        kubectl apply -f k8s_specification/configmaps/ -n ${{ env.K8S_NAMESPACE }}
+        kubectl apply -f k8s_specification/secrets/ -n ${{ env.K8S_NAMESPACE }}
+        kubectl apply -f k8s_specification/persistentvolume/ -n ${{ env.K8S_NAMESPACE }}
+        
+        # Update deployments with new images
         for service in booking-service movie-service showtime-service user-service; do
           kubectl set image deployment/$service $service=${{ env.DOCKER_REGISTRY }}/22i1140/$service:${{ env.APP_VERSION }} -n ${{ env.K8S_NAMESPACE }}
         done
         
         kubectl apply -f k8s_specification/services/ -n ${{ env.K8S_NAMESPACE }}
-        kubectl apply -f k8s_specification/ingress/microservices-ingress.yaml -n ${{ env.K8S_NAMESPACE }}
+        kubectl apply -f k8s_specification/ingress/ -n ${{ env.K8S_NAMESPACE }}
         
-        for service in movie-service booking-service showtime-service user-service; do
-          kubectl rollout status deployment/$service -n ${{ env.K8S_NAMESPACE }} --timeout=300s
-        done
+        # Verify deployments
+        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/movie-service --timeout=300s
+        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/booking-service --timeout=300s
+        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/showtime-service --timeout=300s
+        kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/user-service --timeout=300s
