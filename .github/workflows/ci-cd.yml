@@ -71,74 +71,44 @@ jobs:
         docker push ${{ env.DOCKER_REGISTRY }}/22i1140/${{ matrix.service }}:${{ env.APP_VERSION }}
         docker push ${{ env.DOCKER_REGISTRY }}/22i1140/${{ matrix.service }}:latest
 
-  deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - uses: azure/setup-kubectl@v3
-    
-    - name: Configure Kubernetes Access
-      run: |
-        # Decode and save kubeconfig with proper permissions
-        echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig.yaml
-        chmod 600 kubeconfig.yaml
-        
-        # Verify config file is valid
-        if ! kubectl config view --kubeconfig=kubeconfig.yaml >/dev/null 2>&1; then
-          echo "::error::Invalid kubeconfig format"
-          echo "Config file content:"
-          cat kubeconfig.yaml
-          exit 1
-        fi
-        
-        export KUBECONFIG=kubeconfig.yaml
-        
-        # Verify cluster connectivity
-        if ! kubectl cluster-info >/dev/null 2>&1; then
-          echo "::error::Failed to connect to Kubernetes cluster"
-          echo "Current context:"
-          kubectl config current-context
-          echo "Available contexts:"
-          kubectl config get-contexts
-          exit 1
-        fi
-        
-        echo "✓ Successfully configured Kubernetes access"
+deploy:
+  needs: build-and-push
+  runs-on: ubuntu-latest
+  steps:
+  - uses: actions/checkout@v4
+  - uses: azure/setup-kubectl@v3
+  
+  - name: Configure Kubernetes
+    run: |
+      echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig.yaml
+      chmod 600 kubeconfig.yaml
+      export KUBECONFIG=kubeconfig.yaml
+      
+      # Verify cluster access
+      kubectl cluster-info
+      kubectl get nodes
 
-    - name: Deploy Application
-      run: |
-        # Create namespace if not exists
-        kubectl create namespace ${{ env.K8S_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
-        
-        # Apply configurations in proper order
-        echo "Applying Kubernetes manifests..."
-        kubectl apply --validate=false -f k8s_specification/configmaps/ -n ${{ env.K8S_NAMESPACE }} || echo "ConfigMaps applied with warnings"
-        kubectl apply --validate=false -f k8s_specification/secrets/ -n ${{ env.K8S_NAMESPACE }} || echo "Secrets applied with warnings"
-        kubectl apply --validate=false -f k8s_specification/persistentvolume/ -n ${{ env.K8S_NAMESPACE }} || echo "PersistentVolumes applied with warnings"
-        
-        # Update deployments with new images
-        echo "Updating deployments..."
-        for service in booking-service movie-service showtime-service user-service; do
-          kubectl set image deployment/$service \
-            $service=${{ env.DOCKER_REGISTRY }}/22i1140/$service:${{ env.APP_VERSION }} \
-            -n ${{ env.K8S_NAMESPACE }} || echo "Failed to update $service, may not exist yet"
-        done
-        
-        # Apply remaining resources
-        kubectl apply --validate=false -f k8s_specification/services/ -n ${{ env.K8S_NAMESPACE }} || echo "Services applied with warnings"
-        kubectl apply --validate=false -f k8s_specification/ingress/ -n ${{ env.K8S_NAMESPACE }} || echo "Ingress applied with warnings"
-        
-        # Verify deployments
-        echo "Verifying deployments..."
-        for service in booking-service movie-service showtime-service user-service; do
-          if kubectl get deployment/$service -n ${{ env.K8S_NAMESPACE }} >/dev/null 2>&1; then
-            kubectl rollout status deployment/$service \
-              -n ${{ env.K8S_NAMESPACE }} \
-              --timeout=300s || echo "Rollout verification failed for $service"
-          else
-            echo "Deployment $service not found, skipping verification"
-          fi
-        done
-        
-        echo "✓ Deployment completed"
+  - name: Deploy Resources
+    run: |
+      kubectl create namespace ${{ env.K8S_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+      
+      # Apply resources
+      kubectl apply -f k8s_specification/configmaps/ -n ${{ env.K8S_NAMESPACE }}
+      kubectl apply -f k8s_specification/secrets/ -n ${{ env.K8S_NAMESPACE }}
+      kubectl apply -f k8s_specification/persistentvolume/ -n ${{ env.K8S_NAMESPACE }}
+      
+      # Update deployments
+      for service in booking-service movie-service showtime-service user-service; do
+        kubectl set image deployment/$service \
+          $service=${{ env.DOCKER_REGISTRY }}/22i1140/$service:${{ env.APP_VERSION }} \
+          -n ${{ env.K8S_NAMESPACE }}
+      done
+      
+      kubectl apply -f k8s_specification/services/ -n ${{ env.K8S_NAMESPACE }}
+      kubectl apply -f k8s_specification/ingress/ -n ${{ env.K8S_NAMESPACE }}
+      
+      # Verify deployments
+      kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/movie-service --timeout=300s
+      kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/booking-service --timeout=300s
+      kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/showtime-service --timeout=300s
+      kubectl rollout status -n ${{ env.K8S_NAMESPACE }} deployment/user-service --timeout=300s
