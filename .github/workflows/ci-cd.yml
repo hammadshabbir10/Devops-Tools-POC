@@ -26,7 +26,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -e .
-        pip install pytest
+        pip install pytest  # Only if you need pytest
         
     - name: Verify installation
       run: |
@@ -59,7 +59,7 @@ jobs:
       uses: docker/login-action@v2
       with:
         username: ${{ secrets.DOCKER_HUB_USERNAME }}
-        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+        password: ${{ secrets.DOCKER_HUB_PASSWORD }}
     
     - name: Build and push
       run: |
@@ -78,15 +78,15 @@ jobs:
     - uses: actions/checkout@v4
     - uses: azure/setup-kubectl@v3
     
-    - name: Configure Kubernetes
+    - name: Configure Kubernetes Access
       run: |
-        # Write config file with proper permissions
+        # Decode and save kubeconfig with proper permissions
         echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig.yaml
         chmod 600 kubeconfig.yaml
         
-        # Validate config structure
+        # Verify config file is valid
         if ! kubectl config view --kubeconfig=kubeconfig.yaml >/dev/null 2>&1; then
-          echo "::error::Invalid kubeconfig format!"
+          echo "::error::Invalid kubeconfig format"
           echo "Config file content:"
           cat kubeconfig.yaml
           exit 1
@@ -94,56 +94,51 @@ jobs:
         
         export KUBECONFIG=kubeconfig.yaml
         
-        # Verify cluster access
+        # Verify cluster connectivity
         if ! kubectl cluster-info >/dev/null 2>&1; then
-          echo "::error::Failed to connect to cluster"
-          kubectl config view
+          echo "::error::Failed to connect to Kubernetes cluster"
+          echo "Current context:"
+          kubectl config current-context
+          echo "Available contexts:"
+          kubectl config get-contexts
           exit 1
         fi
         
         echo "✓ Successfully configured Kubernetes access"
 
-    - name: Deploy Resources
+    - name: Deploy Application
       run: |
         # Create namespace if not exists
         kubectl create namespace ${{ env.K8S_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
         
-        # Apply configuration in order
-        declare -a manifests=(
-          "configmaps"
-          "secrets"
-          "persistentvolume"
-          "deployments"
-          "services"
-          "ingress"
-        )
+        # Apply configurations in proper order
+        echo "Applying Kubernetes manifests..."
+        kubectl apply --validate=false -f k8s_specification/configmaps/ -n ${{ env.K8S_NAMESPACE }} || echo "ConfigMaps applied with warnings"
+        kubectl apply --validate=false -f k8s_specification/secrets/ -n ${{ env.K8S_NAMESPACE }} || echo "Secrets applied with warnings"
+        kubectl apply --validate=false -f k8s_specification/persistentvolume/ -n ${{ env.K8S_NAMESPACE }} || echo "PersistentVolumes applied with warnings"
         
-        for manifest in "${manifests[@]}"; do
-          echo "Applying $manifest..."
-          kubectl apply --validate=false -f k8s_specification/$manifest/ -n ${{ env.K8S_NAMESPACE }} || true
-        done
-        
-        # Update images for deployments
-        declare -a services=(
-          "booking-service"
-          "movie-service"
-          "showtime-service"
-          "user-service"
-        )
-        
-        for service in "${services[@]}"; do
-          echo "Updating $service image..."
+        # Update deployments with new images
+        echo "Updating deployments..."
+        for service in booking-service movie-service showtime-service user-service; do
           kubectl set image deployment/$service \
             $service=${{ env.DOCKER_REGISTRY }}/22i1140/$service:${{ env.APP_VERSION }} \
-            -n ${{ env.K8S_NAMESPACE }} || true
+            -n ${{ env.K8S_NAMESPACE }} || echo "Failed to update $service, may not exist yet"
         done
+        
+        # Apply remaining resources
+        kubectl apply --validate=false -f k8s_specification/services/ -n ${{ env.K8S_NAMESPACE }} || echo "Services applied with warnings"
+        kubectl apply --validate=false -f k8s_specification/ingress/ -n ${{ env.K8S_NAMESPACE }} || echo "Ingress applied with warnings"
         
         # Verify deployments
-        for service in "${services[@]}"; do
-          echo "Verifying rollout for $service..."
-          kubectl rollout status deployment/$service \
-            -n ${{ env.K8S_NAMESPACE }} \
-            --timeout=300s || true
+        echo "Verifying deployments..."
+        for service in booking-service movie-service showtime-service user-service; do
+          if kubectl get deployment/$service -n ${{ env.K8S_NAMESPACE }} >/dev/null 2>&1; then
+            kubectl rollout status deployment/$service \
+              -n ${{ env.K8S_NAMESPACE }} \
+              --timeout=300s || echo "Rollout verification failed for $service"
+          else
+            echo "Deployment $service not found, skipping verification"
+          fi
         done
         
-        echo "✓ All resources deployed successfully"
+        echo "✓ Deployment completed"
