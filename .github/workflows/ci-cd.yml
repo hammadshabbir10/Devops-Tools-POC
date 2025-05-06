@@ -87,6 +87,7 @@ jobs:
         minikube start --driver=docker --cpus=4 --memory=8g
         minikube update-context
         kubectl cluster-info
+        
 
     - name: Deploy Resources
       run: |
@@ -100,7 +101,7 @@ jobs:
         
         # Deploy MySQL first and wait briefly
         kubectl apply -f k8s_specification/deployments/mysql-deployment.yaml -n movie-booking
-        sleep 30  # Give MySQL some initialization time
+        sleep 80  # Give MySQL some initialization time
         
         # Apply other deployments
         for service in booking-service movie-service showtime-service user-service; do
