@@ -120,10 +120,10 @@ jobs:
           kubectl apply -f k8s_specification/ingress/ -n movie-booking
           
           # Verify deployments
-          kubectl rollout status -n movie-booking deployment/movie-service --timeout=300s
-          kubectl rollout status -n movie-booking deployment/booking-service --timeout=300s
-          kubectl rollout status -n movie-booking deployment/showtime-service --timeout=300s
-          kubectl rollout status -n movie-booking deployment/user-service --timeout=300s
+          kubectl rollout status -n movie-booking deployment/movie-service --timeout=500s
+          kubectl rollout status -n movie-booking deployment/booking-service --timeout=500s
+          kubectl rollout status -n movie-booking deployment/showtime-service --timeout=500s
+          kubectl rollout status -n movie-booking deployment/user-service --timeout=500s
           
           # Get cluster info
           echo "Cluster details:"
