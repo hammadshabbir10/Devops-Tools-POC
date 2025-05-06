@@ -71,63 +71,79 @@ jobs:
         docker push ${{ env.DOCKER_REGISTRY }}/22i1140/${{ matrix.service }}:${{ env.APP_VERSION }}
         docker push ${{ env.DOCKER_REGISTRY }}/22i1140/${{ matrix.service }}:latest
 
-  deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Minikube
-      run: |
-        # Install Minikube with more resources
-        curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-        sudo install minikube-linux-amd64 /usr/local/bin/minikube
-        sudo apt-get update
-        sudo apt-get install -y kubectl
-        minikube start --driver=docker --cpus=4 --memory=8g
-        minikube update-context
-        kubectl cluster-info
-        
+deploy:
+  needs: build-and-push
+  runs-on: ubuntu-latest
+  steps:
+  - uses: actions/checkout@v4
+  
+  - name: Set up Minikube
+    run: |
+      # Install with more resources and storage addons
+      curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+      sudo install minikube-linux-amd64 /usr/local/bin/minikube
+      sudo apt-get update
+      sudo apt-get install -y kubectl
+      minikube start --driver=docker --cpus=4 --memory=8g --disk-size=20g
+      minikube addons enable storage-provisioner
+      minikube addons enable default-storageclass
+      minikube update-context
+      kubectl cluster-info
 
-    - name: Deploy Resources
-      run: |
-        # Create namespace
-        kubectl create namespace movie-booking --dry-run=client -o yaml | kubectl apply -f -
+  - name: Deploy Resources
+    run: |
+      # Create namespace
+      kubectl create namespace movie-booking --dry-run=client -o yaml | kubectl apply -f -
+      
+      # Apply configurations
+      kubectl apply -f k8s_specification/configmaps/ -n movie-booking
+      kubectl apply -f k8s_specification/secrets/ -n movie-booking
+      kubectl apply -f k8s_specification/persistentvolume/ -n movie-booking
+      
+      # Deploy MySQL with proper waiting
+      kubectl apply -f k8s_specification/deployments/mysql-deployment.yaml -n movie-booking
+      
+      # Wait for MySQL to be ready (up to 3 minutes)
+      echo "Waiting for MySQL to start..."
+      kubectl wait --for=condition=Ready pod -l app=mysql -n movie-booking --timeout=180s || 
+        (kubectl describe pod -l app=mysql -n movie-booking && 
+         kubectl logs -l app=mysql -n movie-booking && exit 1)
+      
+      # Deploy other services sequentially
+      for service in booking-service movie-service showtime-service user-service; do
+        echo "Deploying $service..."
+        kubectl apply -f k8s_specification/deployments/$service-deployment.yaml -n movie-booking
         
-        # Apply configurations
-        kubectl apply -f k8s_specification/configmaps/ -n movie-booking
-        kubectl apply -f k8s_specification/secrets/ -n movie-booking
-        kubectl apply -f k8s_specification/persistentvolume/ -n movie-booking
-        
-        # Deploy MySQL first and wait briefly
-        kubectl apply -f k8s_specification/deployments/mysql-deployment.yaml -n movie-booking
-        sleep 8  # Give MySQL some initialization time
-        
-        # Apply other deployments
-        for service in booking-service movie-service showtime-service user-service; do
-          kubectl apply -f k8s_specification/deployments/$service-deployment.yaml -n movie-booking
-        done
-        
-        # Update images
-        for service in booking-service movie-service showtime-service user-service; do
-          kubectl set image deployment/$service \
-            $service=${{ env.DOCKER_REGISTRY }}/22i1140/$service:${{ env.APP_VERSION }} \
-            -n movie-booking
-        done
-        
-        # Apply services and ingress
-        kubectl apply -f k8s_specification/services/ -n movie-booking
-        kubectl apply -f k8s_specification/ingress/ -n movie-booking
-        
-        # Lightweight verification instead of rollout status
-        echo "Verifying deployments:"
-        kubectl get deployments -n movie-booking -o wide
-        echo "Pod status:"
-        kubectl get pods -n movie-booking --show-labels
-        
-        # Basic health check
-        echo "Checking running pods:"
-        kubectl get pods -n movie-booking --field-selector=status.phase=Running
-        
-        # Get cluster info
-        minikube service list -n movie-booking
+        # Wait briefly between deployments
+        sleep 10
+      done
+      
+      # Update images
+      for service in booking-service movie-service showtime-service user-service; do
+        kubectl set image deployment/$service \
+          $service=${{ env.DOCKER_REGISTRY }}/22i1140/$service:${{ env.APP_VERSION }} \
+          -n movie-booking
+      done
+      
+      # Apply services and ingress
+      kubectl apply -f k8s_specification/services/ -n movie-booking
+      kubectl apply -f k8s_specification/ingress/ -n movie-booking
+      
+      # Verify deployments (non-blocking)
+      echo "Deployment status:"
+      kubectl get deployments -n movie-booking -o wide
+      
+      echo "Pod status:"
+      kubectl get pods -n movie-booking -o wide --show-labels
+      
+      echo "Services:"
+      minikube service list -n movie-booking
+      
+      # Final health check (non-blocking)
+      echo "Current running pods:"
+      kubectl get pods -n movie-booking --field-selector=status.phase=Running
+      
+      # Debug any issues
+      echo "Debugging info:"
+      kubectl get events -n movie-booking --sort-by='.lastTimestamp'
+      kubectl describe pvc -n movie-booking
