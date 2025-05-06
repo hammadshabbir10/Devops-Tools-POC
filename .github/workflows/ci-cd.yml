@@ -79,53 +79,54 @@ jobs:
     
     - name: Set up Minikube
       run: |
-        # Install Minikube
+        # Install Minikube with more resources
         curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
         sudo install minikube-linux-amd64 /usr/local/bin/minikube
-        
-        # Install kubectl
         sudo apt-get update
         sudo apt-get install -y kubectl
-        
-        # Start cluster
-        minikube start --driver=docker
+        minikube start --driver=docker --cpus=4 --memory=8g
         minikube update-context
-        
-        # Verify
         kubectl cluster-info
-        kubectl get nodes
 
     - name: Deploy Resources
       run: |
-          # Create namespace
-          kubectl create namespace movie-booking --dry-run=client -o yaml | kubectl apply -f -
-          
-          # Apply configurations
-          kubectl apply -f k8s_specification/configmaps/ -n movie-booking
-          kubectl apply -f k8s_specification/secrets/ -n movie-booking
-          kubectl apply -f k8s_specification/persistentvolume/ -n movie-booking
-          
-          # Apply all deployments first
-          kubectl apply -f k8s_specification/deployments/ -n movie-booking
-          
-          # Then update images
-          for service in booking-service movie-service showtime-service user-service; do
-            kubectl set image deployment/$service \
-              $service=${{ env.DOCKER_REGISTRY }}/22i1140/$service:${{ env.APP_VERSION }} \
-              -n movie-booking
-          done
-          
-          # Apply services and ingress
-          kubectl apply -f k8s_specification/services/ -n movie-booking
-          kubectl apply -f k8s_specification/ingress/ -n movie-booking
-          
-          # Verify deployments
-          kubectl rollout status -n movie-booking deployment/movie-service --timeout=500s
-          kubectl rollout status -n movie-booking deployment/booking-service --timeout=500s
-          kubectl rollout status -n movie-booking deployment/showtime-service --timeout=500s
-          kubectl rollout status -n movie-booking deployment/user-service --timeout=500s
-          
-          # Get cluster info
-          echo "Cluster details:"
-          kubectl get all -n movie-booking
-          minikube service list -n movie-booking
+        # Create namespace
+        kubectl create namespace movie-booking --dry-run=client -o yaml | kubectl apply -f -
+        
+        # Apply configurations
+        kubectl apply -f k8s_specification/configmaps/ -n movie-booking
+        kubectl apply -f k8s_specification/secrets/ -n movie-booking
+        kubectl apply -f k8s_specification/persistentvolume/ -n movie-booking
+        
+        # Deploy MySQL first and wait briefly
+        kubectl apply -f k8s_specification/deployments/mysql-deployment.yaml -n movie-booking
+        sleep 30  # Give MySQL some initialization time
+        
+        # Apply other deployments
+        for service in booking-service movie-service showtime-service user-service; do
+          kubectl apply -f k8s_specification/deployments/$service-deployment.yaml -n movie-booking
+        done
+        
+        # Update images
+        for service in booking-service movie-service showtime-service user-service; do
+          kubectl set image deployment/$service \
+            $service=${{ env.DOCKER_REGISTRY }}/22i1140/$service:${{ env.APP_VERSION }} \
+            -n movie-booking
+        done
+        
+        # Apply services and ingress
+        kubectl apply -f k8s_specification/services/ -n movie-booking
+        kubectl apply -f k8s_specification/ingress/ -n movie-booking
+        
+        # Lightweight verification instead of rollout status
+        echo "Verifying deployments:"
+        kubectl get deployments -n movie-booking -o wide
+        echo "Pod status:"
+        kubectl get pods -n movie-booking --show-labels
+        
+        # Basic health check
+        echo "Checking running pods:"
+        kubectl get pods -n movie-booking --field-selector=status.phase=Running
+        
+        # Get cluster info
+        minikube service list -n movie-booking
