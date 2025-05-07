@@ -100,10 +100,18 @@ jobs:
           kubectl apply -f k8s_specification/secrets/ -n movie-booking
           kubectl apply -f k8s_specification/persistentvolume/ -n movie-booking
           
+          # Wait for PVC to be bound (corrected syntax)
+          echo "Waiting for PVC to bind..."
+          until kubectl get pvc/mysql-pvc -n movie-booking -o jsonpath='{.status.phase}' | grep -q "Bound"; do
+            echo "PVC not yet bound..."
+            sleep 5
+          done
+          echo "PVC is bound"
+          
           # Deploy MySQL with proper waiting
           kubectl apply -f k8s_specification/deployments/mysql-deployment.yaml -n movie-booking
           
-          # Wait for MySQL with debugging
+          # Wait for MySQL pod to be running (not just created)
           echo "Waiting for MySQL to start..."
           end=$((SECONDS+300))
           while [ $SECONDS -lt $end ]; do
@@ -113,21 +121,21 @@ jobs:
             sleep 5
           done
           
-          # Check MySQL logs if not running
+          # Verify MySQL is actually ready
           if ! kubectl get pod -l app=mysql -n movie-booking -o jsonpath='{.items[0].status.phase}' | grep -q Running; then
             echo "MySQL failed to start. Logs:"
             kubectl logs -l app=mysql -n movie-booking --tail=50
             exit 1
           fi
           
-          # Wait for MySQL to be actually ready
+          # Wait for MySQL to be ready to accept connections
           kubectl wait --for=condition=ready pod -l app=mysql -n movie-booking --timeout=300s
           
           # Deploy other services
           for service in booking-service movie-service showtime-service user-service; do
             echo "Deploying $service..."
             kubectl apply -f k8s_specification/deployments/$service-deployment.yaml -n movie-booking
-            sleep 15
+            sleep 10
           done
           
           # Update images
@@ -141,7 +149,10 @@ jobs:
           kubectl apply -f k8s_specification/services/ -n movie-booking
           kubectl apply -f k8s_specification/ingress/ -n movie-booking
           
-          # Final checks
-          echo "Final status:"
+          # Final status checks
+          echo "Deployment status:"
+          kubectl get deployments -n movie-booking -o wide
+          echo "Pod status:"
           kubectl get pods -n movie-booking -o wide
-          kubectl get events -n movie-booking --sort-by='.lastTimestamp'
+          echo "Services:"
+          minikube service list -n movie-booking
