@@ -6,6 +6,7 @@ metadata:
   namespace: movie-booking
 spec:
   accessModes:
+   storageClassName: minikube-sc
     - ReadWriteOnce
   resources:
     requests:
