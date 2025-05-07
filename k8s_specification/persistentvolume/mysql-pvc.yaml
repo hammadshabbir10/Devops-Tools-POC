@@ -6,10 +6,9 @@ metadata:
   namespace: movie-booking
 spec:
   accessModes:
-   storageClassName: minikube-sc
     - ReadWriteOnce
   resources:
     requests:
       storage: 5Gi
+  storageClassName: "minikube-sc"  # Only specify once
   volumeName: mysql-pv
-  storageClassName: ""  # Must match PV

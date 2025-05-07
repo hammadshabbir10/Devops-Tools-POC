@@ -15,6 +15,16 @@ spec:
       labels:
         app: mysql
     spec:
+      nodeSelector:
+        kubernetes.io/hostname: minikube
+      # Add tolerations for minikube
+      tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+        effect: NoSchedule
       initContainers:
       - name: nuclear-clean
         image: busybox
