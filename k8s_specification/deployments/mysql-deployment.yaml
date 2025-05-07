@@ -15,61 +15,33 @@ spec:
       labels:
         app: mysql
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: minikube
-      # Add tolerations for minikube
-      tolerations:
-      - key: node-role.kubernetes.io/control-plane
-        operator: Exists
-        effect: NoSchedule
-      - key: node-role.kubernetes.io/master
-        operator: Exists
-        effect: NoSchedule
       initContainers:
       - name: nuclear-clean
         image: busybox
-        command: ['sh', '-c', 'if [ -f /var/lib/mysql/.force-clean ]; then rm -rf /var/lib/mysql/*; fi; ls -la /var/lib/mysql']
+        command: ['sh', '-c', 'rm -rf /var/lib/mysql/* && ls -la /var/lib/mysql']
         volumeMounts:
         - name: mysql-data
           mountPath: /var/lib/mysql
       containers:
       - name: mysql
-        image: mysql:8.0.42
+        image: mysql:8.0.42  # Pinned version
+        command: 
+        - sh
+        - -c
+        - |
+          if [ ! -f /var/lib/mysql/mysql ]; then
+            mysqld --initialize-insecure
+          fi
+          exec mysqld
         env:
         - name: MYSQL_ROOT_PASSWORD
           valueFrom:
             secretKeyRef:
               name: db-secrets
               key: MYSQL_ROOT_PASSWORD
-        - name: MYSQL_DATABASE
-          value: "movie_booking"
-        ports:
-        - containerPort: 3306
         volumeMounts:
         - name: mysql-data
           mountPath: /var/lib/mysql
-        resources:
-          requests:
-            memory: "512Mi"
-            cpu: "500m"
-        livenessProbe:
-          exec:
-            command:
-            - mysqladmin
-            - ping
-            - -uroot
-            - -p${MYSQL_ROOT_PASSWORD}
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          exec:
-            command:
-            - mysqladmin
-            - ping
-            - -uroot
-            - -p${MYSQL_ROOT_PASSWORD}
-          initialDelaySeconds: 5
-          periodSeconds: 5
       volumes:
       - name: mysql-data
         persistentVolumeClaim:
