@@ -100,10 +100,6 @@ jobs:
           kubectl apply -f k8s_specification/secrets/ -n movie-booking
           kubectl apply -f k8s_specification/persistentvolume/ -n movie-booking
           
-          # Wait for PVC to be bound
-          echo "Waiting for PVC to bind..."
-          kubectl wait --for=status=Bound pvc/mysql-pvc -n movie-booking --timeout=120s
-          
           # Deploy MySQL with proper waiting
           kubectl apply -f k8s_specification/deployments/mysql-deployment.yaml -n movie-booking
           
