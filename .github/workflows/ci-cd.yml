@@ -72,87 +72,14 @@ jobs:
         docker push ${{ env.DOCKER_REGISTRY }}/22i1140/${{ matrix.service }}:latest
 
   deploy:
-      needs: build-and-push
-      runs-on: ubuntu-latest
-      steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Minikube
-        run: |
-          # Install with more resources and storage addons
-          curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-          sudo install minikube-linux-amd64 /usr/local/bin/minikube
-          sudo apt-get update
-          sudo apt-get install -y kubectl
-          minikube start --driver=docker --cpus=4 --memory=8g --disk-size=20g
-          minikube addons enable storage-provisioner
-          minikube addons enable default-storageclass
-          minikube update-context
-          kubectl cluster-info
-
-      - name: Deploy Resources
-        run: |
-          # Create namespace
-          kubectl create namespace movie-booking --dry-run=client -o yaml | kubectl apply -f -
-          
-          # Apply configurations
-          kubectl apply -f k8s_specification/configmaps/ -n movie-booking
-          kubectl apply -f k8s_specification/secrets/ -n movie-booking
-          kubectl apply -f k8s_specification/persistentvolume/ -n movie-booking
-          
-          # Wait for PVC to be bound (corrected syntax)
-          echo "Waiting for PVC to bind..."
-          until kubectl get pvc/mysql-pvc -n movie-booking -o jsonpath='{.status.phase}' | grep -q "Bound"; do
-            echo "PVC not yet bound..."
-            sleep 5
-          done
-          echo "PVC is bound"
-          
-          # Deploy MySQL with proper waiting
-          kubectl apply -f k8s_specification/deployments/mysql-deployment.yaml -n movie-booking
-          
-          # Wait for MySQL pod to be running (not just created)
-          echo "Waiting for MySQL to start..."
-          end=$((SECONDS+300))
-          while [ $SECONDS -lt $end ]; do
-            PHASE=$(kubectl get pod -l app=mysql -n movie-booking -o jsonpath='{.items[0].status.phase}')
-            [ "$PHASE" = "Running" ] && break
-            echo "MySQL status: $PHASE"
-            sleep 5
-          done
-          
-          # Verify MySQL is actually ready
-          if ! kubectl get pod -l app=mysql -n movie-booking -o jsonpath='{.items[0].status.phase}' | grep -q Running; then
-            echo "MySQL failed to start. Logs:"
-            kubectl logs -l app=mysql -n movie-booking --tail=50
-            exit 1
-          fi
-          
-          # Wait for MySQL to be ready to accept connections
-          kubectl wait --for=condition=ready pod -l app=mysql -n movie-booking --timeout=300s
-          
-          # Deploy other services
-          for service in booking-service movie-service showtime-service user-service; do
-            echo "Deploying $service..."
-            kubectl apply -f k8s_specification/deployments/$service-deployment.yaml -n movie-booking
-            sleep 10
-          done
-          
-          # Update images
-          for service in booking-service movie-service showtime-service user-service; do
-            kubectl set image deployment/$service \
-              $service=${{ env.DOCKER_REGISTRY }}/22i1140/$service:${{ env.APP_VERSION }} \
-              -n movie-booking
-          done
-          
-          # Apply services and ingress
-          kubectl apply -f k8s_specification/services/ -n movie-booking
-          kubectl apply -f k8s_specification/ingress/ -n movie-booking
-          
-          # Final status checks
-          echo "Deployment status:"
-          kubectl get deployments -n movie-booking -o wide
-          echo "Pod status:"
-          kubectl get pods -n movie-booking -o wide
-          echo "Services:"
-          minikube service list -n movie-booking
+  needs: build-and-push
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+    - run: |
+        echo "Deployment will be handled separately via ArgoCD"
+        echo "Built images:"
+        echo "- ${{ env.DOCKER_REGISTRY }}/22i1140/booking-service:${{ env.APP_VERSION }}"
+        echo "- ${{ env.DOCKER_REGISTRY }}/22i1140/movie-service:${{ env.APP_VERSION }}"
+        echo "- ${{ env.DOCKER_REGISTRY }}/22i1140/showtime-service:${{ env.APP_VERSION }}"
+        echo "- ${{ env.DOCKER_REGISTRY }}/22i1140/user-service:${{ env.APP_VERSION }}"
