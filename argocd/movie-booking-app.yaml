@@ -6,8 +6,8 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/yourusername/microservices.git
-    targetRevision: HEAD
+    repoURL: https://github.com/hammadshabbir10/Devops-Tools-POC.git
+    targetRevision: main  # Changed from HEAD to main (your default branch)
     path: k8s_specification  # Path to your Kubernetes manifests
   destination:
     server: https://kubernetes.default.svc
