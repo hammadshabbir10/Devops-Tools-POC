@@ -91,6 +91,10 @@ def add_showtime():
         return nice_json({"error": str(e)}), 400
     finally:
         conn.close()
+
+@app.route("/health")
+def health():
+    return "OK", 200
         
 if __name__ == "__main__":
     app.run(port=5002, debug=True)

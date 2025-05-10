@@ -2,8 +2,9 @@ apiVersion: v1
 kind: Service
 metadata:
   name: mysql
+  namespace: movie-booking  # Add this
 spec:
-  type: NodePort
+  type: ClusterIP  # Change from NodePort
   selector:
     app: mysql
   ports:

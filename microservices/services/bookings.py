@@ -81,6 +81,10 @@ def booking_record(username):
 
     return nice_json(bookings[username])
 
+@app.route("/health")
+def health():
+    return "OK", 200
+
 if __name__ == "__main__":
     app.run(port=5003, debug=True)
 

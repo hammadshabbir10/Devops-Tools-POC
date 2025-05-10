@@ -2,8 +2,11 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: showtime-service
+  namespace: movie-booking
 spec:
   replicas: 2
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: showtime-service
@@ -15,16 +18,30 @@ spec:
       initContainers:
       - name: wait-for-mysql
         image: busybox
-        command: ['sh', '-c', 'until nc -z mysql 3306; do sleep 2; echo "Waiting for MySQL..."; done']
+        command: ['sh', '-c', 'until nc -z mysql.movie-booking.svc.cluster.local 3306; do sleep 2; echo "Waiting for MySQL..."; done']
       containers:
       - name: showtime-service
         image: 22i1140/microservices-showtime-service:v1
         imagePullPolicy: IfNotPresent
-        envFrom:
-        - secretRef:
-            name: db-secrets
-        - configMapRef:
-            name: services-config
+        env:
+        - name: DB_HOST
+          value: "mysql.movie-booking.svc.cluster.local"
+        - name: DB_PORT
+          value: "3306"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_PASSWORD
+        - name: DB_NAME
+          value: "movie_booking"
+        - name: FLASK_ENV
+          value: "production"
         ports:
         - containerPort: 5002
         resources:
@@ -36,7 +53,7 @@ spec:
             cpu: "200m"
         livenessProbe:
           httpGet:
-            path: /health
+            path: /
             port: 5002
           initialDelaySeconds: 30
           periodSeconds: 10
