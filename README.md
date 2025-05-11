@@ -29,7 +29,7 @@ A project demonstrating end-to-end DevOps practices—containerization (Docker),
 - Iqrash Qureshi, 22I-1174
 - Haider Zia, 22I-1196
 
-#### DEVOPS PROJECT
+# DEVOPS PROJECT
 
 ## Apply Devops Tools:
 
@@ -50,17 +50,18 @@ A project demonstrating end-to-end DevOps practices—containerization (Docker),
 # 2- Docker
 
 
-![image](https://github.com/user-attachments/assets/6f9a6a5f-7472-48ed-a0af-2a035e3870d3)
+![Image](https://github.com/user-attachments/assets/973ff320-ab69-495d-b0ab-0c207854d5fe)
+
 
 
 docker ps -a
 
-![image](https://github.com/user-attachments/assets/1b7a4442-17b5-46bd-afbe-98381af923d6)
+![Image](https://github.com/user-attachments/assets/30b7b7b2-5b9b-468c-b541-8ff5f157f4b6)
 
 
 docker images
 
-![image](https://github.com/user-attachments/assets/40dbc94d-10a8-4e23-a1b6-1d5f497a5876)
+![Image](https://github.com/user-attachments/assets/9e7e41fd-cce1-4f5f-9dc0-b05339cbf575)
 
 
 # 3- Kubernetes
@@ -71,41 +72,43 @@ docker images
 
 my- namespace is kube-system & movie-booking
 
-![image](https://github.com/user-attachments/assets/2161e4dc-360d-4426-ac36-77e53b372c57)
+![Image](https://github.com/user-attachments/assets/8b312f61-3941-42e0-a8ae-71787e95550e)
 
 
-![image](https://github.com/user-attachments/assets/3539f3ea-9862-4291-ac53-2d45cc53ba1f)
+![Image](https://github.com/user-attachments/assets/41678a5e-5f01-43de-962f-e5bd183aeb36)
 
 
 kubectl get pods -n movie-booking
+
+![Image](https://github.com/user-attachments/assets/3c069472-802b-4b58-b1f3-3d93be0b1793)
 
 
 
 kubectl get pv,pvc -n movie-booking
 kubeclt get svc -n movie-booking
 
-![image](https://github.com/user-attachments/assets/1963acb1-cec0-4b18-9022-f8891edb9061)
+![Image](https://github.com/user-attachments/assets/d9fae7c9-0b21-40fe-adbe-8925a64908d2)
 
 
 kubeclt get ingress -n movie-booking
 
-![image](https://github.com/user-attachments/assets/1e0d726f-938c-499d-962f-784c5ca856d2)
+![Image](https://github.com/user-attachments/assets/2eaaf07b-d623-4e93-9bb5-1832633beeb1)
 
 
 kubectl get deployments -n movie-booking
 
-![image](https://github.com/user-attachments/assets/82e7c911-6db7-4bb5-bc8d-a17d3d8e11de)
+![Image](https://github.com/user-attachments/assets/d17aa035-6f22-4dd6-b897-945ec4bac712)
 
 
 kubectl get scerts -n movie booking
 
-![image](https://github.com/user-attachments/assets/0fcc7b42-4801-48d4-87f9-e46b2565b157)
+![Image](https://github.com/user-attachments/assets/2efb37aa-3601-4e63-806c-795104d41ef0)
 
 
 k8s_Specification (kubernestes folders)
 
 
-![image](https://github.com/user-attachments/assets/50a0a6c9-152d-4eea-b4ea-f83fced8a1f2)
+![Image](https://github.com/user-attachments/assets/8c329d11-253d-4421-a46b-3cbeda0fe8f7)
 
 
 ## BACKEND-ENTERIES IN KUBERNETES THROUGH POSTMAN
@@ -122,7 +125,8 @@ url: http://localhost:30000/users
 
 kubectl port-forward svc/user-service 5000:5000 -n movie-booking
 
-![image](https://github.com/user-attachments/assets/fb6bc19e-ddfa-452f-b3fa-599d299d5b63)
+![Image](https://github.com/user-attachments/assets/a6dc0714-2e76-43a5-a475-1139689fcac3)
+
 
 New user has been entered.
 
@@ -131,63 +135,63 @@ New user has been entered.
 
 url: http://localhost:30001/movies
 
-![image](https://github.com/user-attachments/assets/e4b81867-8666-4adb-8be6-0959343cf0a7)
+![Image](https://github.com/user-attachments/assets/4978640c-40e3-4794-a907-e8eff1ba7014)
 
 
 kubectl port-forward svc/movie-service 5001:5001 -n movie-booking
 
-![image](https://github.com/user-attachments/assets/680886ee-ce0a-44b1-8277-6050d6d82f55)
+![Image](https://github.com/user-attachments/assets/831ca2c1-6851-479c-a535-db0935114842)
 
 
 # For Showtime
 
 url: http://localhost:30001/showtimes
 
-![image](https://github.com/user-attachments/assets/ea473ce6-b7eb-437d-85f2-d324e34c30ed)
+![Image](https://github.com/user-attachments/assets/d2e7d677-1951-45fd-9fb0-50fe2c161e2c)
 
 
 kubectl port-forward svc/showtime-service 5002:5002 -n movie-booking
 
-![image](https://github.com/user-attachments/assets/d86c0581-9f8c-483f-9f52-0691c9c0dab2)
+![Image](https://github.com/user-attachments/assets/e47e4035-803c-4a1d-b180-a4247451a4b1)
 
 
 # For Bookings;
 
 url: http://localhost:30003/bookings
 
-![image](https://github.com/user-attachments/assets/298ca600-f369-409d-9eff-8a087a88c1d4)
+![Image](https://github.com/user-attachments/assets/e5682200-6caa-4af1-be44-d1c86d1d0f79)
 
 
 kubectl port-forward svc/booking-service 5003:5003 -n movie-booking
 
-![image](https://github.com/user-attachments/assets/40d8e54e-ddf9-4bb2-ae23-804cc35ef923)
+![Image](https://github.com/user-attachments/assets/40b1b258-bef5-48a2-a2e7-290d783cc7d1)
 
 
 # 4- ARGO-CD
 
 
-![image](https://github.com/user-attachments/assets/a9e7a952-4763-4511-a1f6-27dec3760dd8)
+![Image](https://github.com/user-attachments/assets/1485f3df-59cd-46ee-82dc-0af175ca8f45)
 
 kubectl apply -f argocd/movie-booking-app.yaml
 kubectl port-forward svc/argocd-server -n argocd 8080:443
 
-![image](https://github.com/user-attachments/assets/433b8240-7a53-4109-a3b6-90959d6ebd53)
+![Image](https://github.com/user-attachments/assets/9c715ea3-799c-4c9d-8f5e-ea501156f8bb)
 
 
 kubectl get pods -n argocd
 https://localhost:8080
 
 
-![image](https://github.com/user-attachments/assets/d6c3a4c7-b087-4a2b-a892-876e2c64102d)
+![Image](https://github.com/user-attachments/assets/b5c14a17-00bd-4b44-9bc7-7432c76ce528)
 
 
-![image](https://github.com/user-attachments/assets/c8049f76-1f08-4b9f-88d4-009c03921705)
+![Image](https://github.com/user-attachments/assets/20ce12b7-1532-4dbd-9263-cdc56420828b)
 
 
 
 # 5- CI-CD PIPLINE
 
-![image](https://github.com/user-attachments/assets/2ddd83ae-d157-4e22-9950-98c2832be487)
+![Image](https://github.com/user-attachments/assets/2b9f9aab-f353-4658-ae1f-593d60bb105d)
 
 
 # F-Terraform
@@ -195,20 +199,19 @@ https://localhost:8080
 •	Terraform plan
 
 
-![image](https://github.com/user-attachments/assets/fa6acb0e-6f78-4c93-9923-b8add47833d0)
+![Image](https://github.com/user-attachments/assets/6eb4802c-6083-415e-afab-181f7e290b9e)
 
 
-![image](https://github.com/user-attachments/assets/df8ddad0-46e2-42ea-9e87-57089c18f3e6)
+![Image](https://github.com/user-attachments/assets/2f4cc608-c3b1-426e-9a22-87d328d57d70)
 
 
-![image](https://github.com/user-attachments/assets/b8e8d789-2f07-4ca8-a894-e58bb266db04)
+![Image](https://github.com/user-attachments/assets/980c6127-efcc-4b13-9753-3882b3f081f4)
 
 
 
 # MY KEYS
 
-![image](https://github.com/user-attachments/assets/000de0eb-6dcc-4cd8-b864-f314f0b922b4)
-
+![Image](https://github.com/user-attachments/assets/3dd296a7-2530-41c7-b4f9-e0d85bde1203)
 
 # 6- ANSIBLE
 
