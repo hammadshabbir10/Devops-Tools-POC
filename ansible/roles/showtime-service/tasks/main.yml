@@ -1,0 +1,89 @@
+---
+- name: Include common tasks
+  include_tasks: ../../common/tasks/main.yml
+
+- name: Deploy Showtime Service
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: showtime-service
+        namespace: "{{ namespace }}"
+      spec:
+        replicas: {{ services.showtime-service.replicas }}
+        selector:
+          matchLabels:
+            app: showtime-service
+        template:
+          metadata:
+            labels:
+              app: showtime-service
+          spec:
+            initContainers:
+              - name: wait-for-mysql
+                image: busybox
+                command: ['sh', '-c', 'until nc -z mysql.{{ namespace }}.svc.cluster.local 3306; do sleep 2; echo "Waiting for MySQL..."; done']
+            containers:
+              - name: showtime-service
+                image: "{{ services.showtime-service.image }}"
+                ports:
+                  - containerPort: {{ services.showtime-service.port }}
+                env:
+                  - name: DB_HOST
+                    valueFrom:
+                      configMapKeyRef:
+                        name: db-config
+                        key: DB_HOST
+                  - name: DB_PORT
+                    valueFrom:
+                      configMapKeyRef:
+                        name: db-config
+                        key: DB_PORT
+                  - name: DB_USER
+                    valueFrom:
+                      secretKeyRef:
+                        name: db-secrets
+                        key: DB_USER
+                  - name: DB_PASSWORD
+                    valueFrom:
+                      secretKeyRef:
+                        name: db-secrets
+                        key: DB_PASSWORD
+                  - name: DB_NAME
+                    valueFrom:
+                      configMapKeyRef:
+                        name: db-config
+                        key: DB_NAME
+                resources:
+                  requests:
+                    cpu: "100m"
+                    memory: "128Mi"
+                  limits:
+                    cpu: "200m"
+                    memory: "256Mi"
+                livenessProbe:
+                  httpGet:
+                    path: /health
+                    port: {{ services.showtime-service.port }}
+                  initialDelaySeconds: 30
+                  periodSeconds: 10
+
+- name: Create Showtime Service
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: showtime-service
+        namespace: "{{ namespace }}"
+      spec:
+        selector:
+          app: showtime-service
+        ports:
+          - protocol: TCP
+            port: {{ services.showtime-service.port }}
+            targetPort: {{ services.showtime-service.port }}
+        type: NodePort

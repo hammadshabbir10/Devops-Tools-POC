@@ -1,0 +1,11 @@
+---
+- name: Deploy User Service
+  hosts: microservices
+  become: yes
+  gather_facts: yes
+
+  vars_files:
+    - ../inventories/production/group_vars/all.yml
+
+  roles:
+    - user-service

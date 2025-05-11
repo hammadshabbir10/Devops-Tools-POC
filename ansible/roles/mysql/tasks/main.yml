@@ -1,0 +1,133 @@
+---
+- name: Include common tasks
+  include_tasks: ../../common/tasks/main.yml
+
+- name: Create MySQL secret
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: db-secrets
+        namespace: "{{ namespace }}"
+      type: Opaque
+      data:
+        MYSQL_ROOT_PASSWORD: "{{ mysql_root_password | b64encode }}"
+        DB_USER: "{{ mysql_user | b64encode }}"
+        DB_PASSWORD: "{{ mysql_password | b64encode }}"
+
+- name: Create MySQL Persistent Volume
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolume
+      metadata:
+        name: mysql-pv
+      spec:
+        capacity:
+          storage: 5Gi
+        accessModes:
+          - ReadWriteOnce
+        persistentVolumeReclaimPolicy: Retain
+        hostPath:
+          path: /var/lib/mysql-new
+          type: DirectoryOrCreate
+
+- name: Create MySQL Persistent Volume Claim
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: mysql-pvc
+        namespace: "{{ namespace }}"
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 5Gi
+        volumeName: mysql-pv
+
+- name: Deploy MySQL
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: mysql
+        namespace: "{{ namespace }}"
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: mysql
+        template:
+          metadata:
+            labels:
+              app: mysql
+          spec:
+            initContainers:
+              - name: init-db
+                image: busybox
+                command: ['sh', '-c', 'cp /docker-entrypoint-initdb.d/init.sql /var/lib/mysql/']
+                volumeMounts:
+                  - name: init-script
+                    mountPath: /docker-entrypoint-initdb.d
+                  - name: mysql-persistent-storage
+                    mountPath: /var/lib/mysql
+            containers:
+              - name: mysql
+                image: "{{ mysql_image }}"
+                env:
+                  - name: MYSQL_ROOT_PASSWORD
+                    valueFrom:
+                      secretKeyRef:
+                        name: db-secrets
+                        key: MYSQL_ROOT_PASSWORD
+                ports:
+                  - containerPort: 3306
+                volumeMounts:
+                  - name: mysql-persistent-storage
+                    mountPath: /var/lib/mysql
+            volumes:
+              - name: mysql-persistent-storage
+                persistentVolumeClaim:
+                  claimName: mysql-pvc
+              - name: init-script
+                configMap:
+                  name: mysql-init
+
+- name: Create MySQL ConfigMap
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: mysql-init
+        namespace: "{{ namespace }}"
+      data:
+        init.sql: "{{ lookup('template', 'templates/init.sql.j2') }}"
+
+- name: Create MySQL Service
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: mysql
+        namespace: "{{ namespace }}"
+      spec:
+        selector:
+          app: mysql
+        ports:
+          - protocol: TCP
+            port: 3306
+            targetPort: 3306
+        type: ClusterIP

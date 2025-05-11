@@ -1,0 +1,35 @@
+---
+# Kubernetes configuration
+kube_config_path: "~/.kube/config"
+namespace: "movie-booking"
+
+# MySQL configuration
+mysql_image: "mysql:8.0"
+mysql_root_password: "mostwanted3z"
+mysql_user: "root"
+mysql_password: "mostwanted3z"
+mysql_database: "movie_booking"
+mysql_port: 3306
+
+# Services configuration
+services:
+  user-service:
+    image: "22i1140/microservices-user-service:v1"
+    port: 5000
+    replicas: 2
+  movie-service:
+    image: "22i1140/microservices-movie-service:v1"
+    port: 5001
+    replicas: 2
+  showtime-service:
+    image: "22i1140/microservices-showtime-service:v1"
+    port: 5002
+    replicas: 2
+  booking-service:
+    image: "22i1140/microservices-booking-service:v1"
+    port: 5003
+    replicas: 2
+
+# Ingress configuration
+ingress_host: "moviebooking.local"
+ingress_class: "nginx"

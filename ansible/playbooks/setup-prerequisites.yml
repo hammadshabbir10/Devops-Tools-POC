@@ -1,0 +1,56 @@
+---
+- name: Setup Kubernetes cluster prerequisites
+  hosts: kubernetes_nodes
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: Update apt package index
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install required system packages
+      apt:
+        name:
+          - python3
+          - python3-pip
+          - docker.io
+          - kubectl
+          - kubelet
+          - kubeadm
+          - containerd
+          - nginx
+          - git
+          - curl
+          - wget
+        state: present
+
+    - name: Start and enable Docker service
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Install Python packages
+      pip:
+        name:
+          - kubernetes
+          - openshift
+          - docker
+          - ansible
+          - pyyaml
+        executable: pip3
+
+    - name: Create .kube directory
+      file:
+        path: ~/.kube
+        state: directory
+        mode: '0755'
+
+    - name: Copy kubeconfig file
+      copy:
+        src: ../files/kubeconfig
+        dest: ~/.kube/config
+        mode: '0600'
+      when: inventory_hostname == 'k8s-master'

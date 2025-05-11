@@ -1,0 +1,67 @@
+---
+- name: Deploy Nginx Ingress Controller
+  kubernetes.core.helm:
+    name: ingress-nginx
+    chart_ref: ingress-nginx/ingress-nginx
+    chart_version: 4.0.13
+    release_namespace: "{{ namespace }}"
+    create_namespace: yes
+    values:
+      controller:
+        service:
+          type: NodePort
+        replicaCount: 2
+
+- name: Deploy Movie Booking Ingress
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: microservices-ingress
+        namespace: "{{ namespace }}"
+        annotations:
+          kubernetes.io/ingress.class: "{{ ingress_class }}"
+          nginx.ingress.kubernetes.io/rewrite-target: /$2
+          nginx.ingress.kubernetes.io/use-regex: "true"
+      spec:
+        rules:
+          - host: "{{ ingress_host }}"
+            http:
+              paths:
+                - path: /(user|users)(/|$)(.*)
+                  pathType: ImplementationSpecific
+                  backend:
+                    service:
+                      name: user-service
+                      port:
+                        number: {{ services.user-service.port }}
+                - path: /movies(/|$)(.*)
+                  pathType: ImplementationSpecific
+                  backend:
+                    service:
+                      name: movie-service
+                      port:
+                        number: {{ services.movie-service.port }}
+                - path: /showtimes(/|$)(.*)
+                  pathType: ImplementationSpecific
+                  backend:
+                    service:
+                      name: showtime-service
+                      port:
+                        number: {{ services.showtime-service.port }}
+                - path: /bookings(/|$)(.*)
+                  pathType: ImplementationSpecific
+                  backend:
+                    service:
+                      name: booking-service
+                      port:
+                        number: {{ services.booking-service.port }}
+                - path: /health
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: user-service
+                      port:
+                        number: {{ services.user-service.port }}

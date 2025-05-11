@@ -1,0 +1,118 @@
+---
+- name: Include common tasks
+  include_tasks: ../../common/tasks/main.yml
+
+- name: Create DB ConfigMap
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: db-config
+        namespace: "{{ namespace }}"
+      data:
+        DB_HOST: "mysql.{{ namespace }}.svc.cluster.local"
+        DB_PORT: "{{ mysql_port }}"
+        DB_NAME: "{{ mysql_database }}"
+
+- name: Create Services ConfigMap
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: services-config
+        namespace: "{{ namespace }}"
+      data:
+        MOVIE_SERVICE_URL: "http://movie-service:{{ services.movie-service.port }}"
+        SHOWTIME_SERVICE_URL: "http://showtime-service:{{ services.showtime-service.port }}"
+        BOOKING_SERVICE_URL: "http://booking-service:{{ services.booking-service.port }}"
+        USER_SERVICE_URL: "http://user-service:{{ services.user-service.port }}"
+
+- name: Deploy User Service
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: user-service
+        namespace: "{{ namespace }}"
+      spec:
+        replicas: {{ services.user-service.replicas }}
+        selector:
+          matchLabels:
+            app: user-service
+        template:
+          metadata:
+            labels:
+              app: user-service
+          spec:
+            initContainers:
+              - name: wait-for-mysql
+                image: busybox
+                command: ['sh', '-c', 'until nc -z mysql.{{ namespace }}.svc.cluster.local 3306; do sleep 2; echo "Waiting for MySQL..."; done']
+            containers:
+              - name: user-service
+                image: "{{ services.user-service.image }}"
+                ports:
+                  - containerPort: {{ services.user-service.port }}
+                env:
+                  - name: DB_HOST
+                    valueFrom:
+                      configMapKeyRef:
+                        name: db-config
+                        key: DB_HOST
+                  - name: DB_PORT
+                    valueFrom:
+                      configMapKeyRef:
+                        name: db-config
+                        key: DB_PORT
+                  - name: DB_USER
+                    valueFrom:
+                      secretKeyRef:
+                        name: db-secrets
+                        key: DB_USER
+                  - name: DB_PASSWORD
+                    valueFrom:
+                      secretKeyRef:
+                        name: db-secrets
+                        key: DB_PASSWORD
+                  - name: DB_NAME
+                    valueFrom:
+                      configMapKeyRef:
+                        name: db-config
+                        key: DB_NAME
+                resources:
+                  requests:
+                    cpu: "100m"
+                    memory: "128Mi"
+                  limits:
+                    cpu: "200m"
+                    memory: "256Mi"
+                livenessProbe:
+                  httpGet:
+                    path: /health
+                    port: {{ services.user-service.port }}
+                  initialDelaySeconds: 30
+                  periodSeconds: 10
+
+- name: Create User Service
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: user-service
+        namespace: "{{ namespace }}"
+      spec:
+        selector:
+          app: user-service
+        ports:
+          - protocol: TCP
+            port: {{ services.user-service.port }}
+            targetPort: {{ services.user-service.port }}
+        type: NodePort
